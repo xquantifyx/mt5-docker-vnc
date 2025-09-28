@@ -1,0 +1,57 @@
+# Docker Compose Override for Development
+# This file is automatically loaded and can be used for local customizations
+
+version: '3.8'
+
+services:
+  mt5-instance:
+    # Development overrides
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    volumes:
+      # Mount source code for development
+      - ./scripts:/home/mt5user/scripts:rw
+      - ./configs:/home/mt5user/configs:rw
+    # Uncomment for development debugging
+    # ports:
+    #   - "5902:5901"  # Additional VNC port for debugging
+
+  nginx:
+    # Development nginx configuration
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    # Enable nginx debug mode
+    command: ["nginx", "-g", "daemon off;", "-e", "/var/log/nginx/error.log", "-c", "/etc/nginx/nginx.conf"]
+
+# Additional services for development
+  # Portainer for container management
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: mt5-portainer
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - mt5-network
+
+  # Grafana for monitoring (optional)
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: mt5-grafana
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   networks:
+  #     - mt5-network
+
+volumes:
+  portainer_data:
+  # grafana_data:

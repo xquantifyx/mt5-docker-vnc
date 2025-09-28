@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mt5-instance:
+    build: .
+    container_name: mt5-main
+    restart: unless-stopped
+    ports:
+      - "6080:6080"  # noVNC web interface
+      - "5901:5901"  # VNC direct access
+    volumes:
+      - ./data/mt5-main:/home/mt5user/mt5data
+      - ./logs/mt5-main:/home/mt5user/logs
+      - ./configs:/home/mt5user/configs:ro
+    environment:
+      - VNC_PASSWORD=${VNC_PASSWORD:-mt5password}
+      - INSTANCE_NAME=mt5-main
+      - MT5_LOGIN=${MT5_LOGIN:-}
+      - MT5_PASSWORD=${MT5_PASSWORD:-}
+      - MT5_SERVER=${MT5_SERVER:-}
+    networks:
+      - mt5-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Load balancer for multiple instances
+  nginx:
+    image: nginx:alpine
+    container_name: mt5-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - mt5-instance
+    networks:
+      - mt5-network
+
+  # Monitoring
+  watchtower:
+    image: containrrr/watchtower
+    container_name: mt5-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+    networks:
+      - mt5-network
+
+networks:
+  mt5-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mt5-data:
+    driver: local
+  mt5-logs:
+    driver: local
